@@ -1,0 +1,209 @@
+{% extends "layout/base.html" %}
+{% block title %}Quassel: Web{% endblock %}
+{% block meta %}
+	{{ super() }}
+	<link rel="shortcut icon" href="http://quassel-irc.org/files/bluemarine_favicon_0.png" type="image/x-icon">
+{% endblock %}
+{% block css %}
+	<link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css">
+	<!-- <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/datatables/1.10.0/css/jquery.dataTables.min.css"> -->
+	<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/plug-ins/be7019ee387/integration/bootstrap/3/dataTables.bootstrap.css">
+	<style>
+		td {
+			font-family: consolas;
+		}
+
+		.dataTables_scrollBody {
+			height: calc(100vh - 120px) !important;
+		}
+
+		table.dataTable tfoot th {
+			padding: 0;
+			margin: 0;
+		}
+
+		th input[type=text],
+		th select {
+			box-sizing: border-box;
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			border: 1px solid #ccc;
+		}
+	</style>
+	
+{% endblock %}
+{% block javascript %}
+	<script type="text/javascript" charset="utf-8" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js" defer></script>
+	<script type="text/javascript" charset="utf-8" src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js" defer></script>
+	<script type="text/javascript" charset="utf-8" src="//cdnjs.cloudflare.com/ajax/libs/datatables/1.10.0/js/jquery.dataTables.min.js" defer></script>
+	<script type="text/javascript" charset="utf-8" src="//next.datatables.net/release-datatables/extensions/Scroller/js/dataTables.scroller.js" defer></script>
+	<script type="text/javascript" charset="utf-8" src="//cdn.datatables.net/plug-ins/be7019ee387/integration/bootstrap/3/dataTables.bootstrap.js" defer></script>
+	<script type="text/javascript" charset="utf-8" src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.7.0/moment.min.js" defer></script>
+
+	<script type="text/javascript" charset="utf-8">
+		document.addEventListener("DOMContentLoaded", function(){
+			var dt = window.dt = $('#dt').dataTable({
+				processing: true,
+				serverSide: true,
+				paging: true,
+				dom: "rtiS",
+				deferRender: true,
+				sScrollY: "400px",
+				scroller: {
+					// loadingIndicator: true
+				},
+				ajax: {
+					url: 'api.json',
+				},
+				searchCols: [
+					// Needs hungarian notation as of DataTables 1.10.0 July-07-2014.
+					// http://datatables.net/forums/discussion/21087/using-searchcols-for-server-side-processing-on-1-10				
+					null,
+					null,
+					null,
+					null,
+					null,
+					{sSearch: '1'} 
+				],
+				columns: [
+					{
+						data: {
+							_: 'time',
+							display: function(row, type, val, meta) {
+								if (!row) return;
+								console.log(row);
+								val = row.time;
+								var d = moment(val);
+								return d.format('[[]hh:mm:ss[]]');
+							},
+						},
+						type: 'date',
+						title: 'Time',
+						searchable: false,
+						orderable: false,
+					},
+					{
+						data: 'buffer.network.name',
+						type: 'string',
+						title: 'Network',
+						orderable: false,
+					},
+					{
+						data: 'buffer.name',
+						type: 'string',
+						title: 'Buffer',
+						orderable: false,
+					},
+					{
+						data: {
+							_: 'sender.name',
+							display: function(row, type, val, meta) {
+								if (!row) return;
+								val = row.sender.name;
+								return val.indexOf('!') > 0 ? val.substr(0, val.indexOf('!')) : val;
+							},
+						},
+						type: 'string',
+						title: 'Sender',
+						orderable: false,
+					},
+					{
+						data: 'message',
+						type: 'string',
+						title: 'Message',
+						orderable: false,
+					},
+					{
+						data: 'type',
+						type: 'number',
+						title: 'Type',
+						orderable: false,
+					},
+				],
+			});
+
+			var setupMessageFilter = function(el, colIndex) {
+				var searchFn = function(){
+					var value = '';
+					if (this.tagName === 'INPUT'){
+						value = this.value;
+					} else if (this.tagName === 'SELECT') {
+						value = this.options[this.selectedIndex].value;
+					}
+					console.log(colIndex, this.tagName, value);
+					
+					dt.api()
+						.column(colIndex)
+						.search(value)
+						.draw();
+				};
+				var throttledSearchFn = $.fn.dataTableExt.oApi._fnThrottle(searchFn, 1000);
+
+				if (el[0].tagName === 'INPUT'){
+					el.on('keyup change', throttledSearchFn);
+				} else if (el[0].tagName === 'SELECT') {
+					el.on('change', searchFn);
+				}
+			};
+			setupMessageFilter($('#messageBufferNetworkNameFilter'), 1);
+			setupMessageFilter($('#messageBufferNameFilter'), 2);
+			setupMessageFilter($('#messageSenderNameFilter'), 3);
+			setupMessageFilter($('#messageMessageFilter'), 4);
+			setupMessageFilter($('#messageTypeFilter'), 5);
+		});
+	</script>
+{% endblock %}
+{% block body %}
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-xs-12">
+				<table id="dt" class="table table-condensed">
+					<thead></thead>
+					<tbody></tbody>
+					<tfoot>
+						<tr>
+							<th></th>
+							<th>
+								<input type="text" id="messageBufferNetworkNameFilter" placeholder="Network">
+							</th>
+							<th>
+								<input type="text" id="messageBufferNameFilter" placeholder="Buffer">
+							</th>
+							<th>
+								<input type="text" id="messageSenderNameFilter" placeholder="Sender">
+							</th>
+							<th>
+								<input type="text" id="messageMessageFilter" placeholder="Message">
+							</th>
+							<th>
+								<select id="messageTypeFilter">
+									<option value="">Type</option>
+									<option value="1" selected="selected">Plain</option>
+									<option value="2">Notice</option>
+									<option value="4">Action</option>
+									<option value="8">Nick</option>
+									<option value="16">Mode</option>
+									<option value="32">Join</option>
+									<option value="64">Part</option>
+									<option value="128">Quit</option>
+									<option value="256">Kick</option>
+									<option value="512">Kill</option>
+									<option value="1024">Server</option>
+									<option value="2048">Info</option>
+									<option value="4096">Error</option>
+									<option value="8192">DayChange</option>
+									<option value="16384">Topic</option>
+									<option value="32768">NetsplitJoin</option>
+									<option value="65536">NetsplitQuit</option>
+									<option value="131072">Invite</option>
+								</select>
+							</th>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+		</div>
+	</div>
+{% endblock %}
