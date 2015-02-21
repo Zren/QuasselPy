@@ -138,6 +138,26 @@ class Network(Model):
     attachperform = Column(Text)
     detachperform = Column(Text)
 
+class MessageType:
+    Plain = 1
+    Notice = 2
+    Action = 4
+    Nick = 8
+    Mode = 16
+    Join = 32
+    Part = 64
+    Quit = 128
+    Kick = 256
+    Kill = 512
+    Server = 1024
+    Info = 2048
+    Error = 4096
+    DayChange = 8192
+    Topic = 16384
+    NetsplitJoin = 32768
+    NetsplitQuit = 65536
+    Invite = 131072
+
 def quassel_session(uri):
     engine = create_engine(uri, echo=False)
     # meta.create_all(engine)
@@ -146,7 +166,8 @@ def quassel_session(uri):
     return session
 
 if __name__ == '__main__':
-    from config import uri
+    import os
+    uri = 'sqlite:///' + os.environ.get('APPDATA') + r'\quassel-irc.org\quassel-storage.sqlite'
     session = quassel_session(uri)
 
     import re
@@ -159,7 +180,10 @@ if __name__ == '__main__':
     #     print(row)
 
     query = session.query(Message)
+    query = query.filter(Message.type == MessageType.Plain)
+
     count = query.count()
+    printf(count)
     for message in query[count-100:count]:
         printf(message.to_dict())
         # printf('{0}\t{1}:\t{2}'.format(message.time, message.buffer.buffername, message.message))
